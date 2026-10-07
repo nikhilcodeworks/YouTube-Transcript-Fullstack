@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Python Backend Service
+  python-service:
+    build:
+      context: ./python-service
+      dockerfile: Dockerfile
+    container_name: youtube-transcript-api
+    ports:
+      - "5000:5000"
+    environment:
+      - WHISPER_MODEL=base
+      - FLASK_ENV=production
+    volumes:
+      - ./python-service/temp:/app/temp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Next.js Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: youtube-transcript-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_PYTHON_SERVICE_URL=http://python-service:5000
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+    depends_on:
+      python-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+    name: youtube-transcript-network
